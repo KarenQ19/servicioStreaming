@@ -1,0 +1,1 @@
+{"version":3,"file":"reportesController.d.ts","sourceRoot":"","sources":["../../src/controllers/reportesController.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,QAAQ,EAAE,MAAM,SAAS,CAAC;AAK5C,eAAO,MAAM,kBAAkB;mCAEQ,OAAO,OAAO,QAAQ;sCA6SnB,OAAO,OAAO,QAAQ;uCAyP3B,GAAG,EAAE,WAAW,MAAM,eAAe,IAAI,YAAY,IAAI;CA2C7F,CAAC"}

@@ -1,0 +1,37 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const auth_1 = __importDefault(require("./auth"));
+const servicios_1 = __importDefault(require("./servicios"));
+const carrito_1 = __importDefault(require("./carrito"));
+const suscripciones_1 = __importDefault(require("./suscripciones"));
+const pagos_1 = __importDefault(require("./pagos"));
+const qr_1 = __importDefault(require("./qr"));
+const metodosPago_1 = __importDefault(require("./metodosPago"));
+const clientePagos_1 = __importDefault(require("./clientePagos"));
+const clienteServicios_1 = __importDefault(require("./clienteServicios"));
+const cliente_1 = __importDefault(require("./cliente"));
+const catalogo_1 = __importDefault(require("./catalogo"));
+const admin_1 = __importDefault(require("./admin"));
+const users_1 = __importDefault(require("./users"));
+const credenciales_1 = __importDefault(require("./credenciales"));
+const router = express_1.default.Router();
+router.use('/auth', auth_1.default);
+router.use('/servicios', servicios_1.default);
+router.use('/catalogo', catalogo_1.default);
+router.use('/cliente/servicios', clienteServicios_1.default);
+router.use('/cliente', cliente_1.default);
+router.use('/carrito', carrito_1.default);
+router.use('/suscripciones', suscripciones_1.default);
+router.use('/pagos', pagos_1.default);
+router.use('/qr', qr_1.default);
+router.use('/clientes', clientePagos_1.default);
+router.use('/users', users_1.default);
+router.use('/admin', admin_1.default);
+router.use('/credenciales', credenciales_1.default);
+router.use('/metodos-pago', metodosPago_1.default);
+exports.default = router;
+//# sourceMappingURL=index.js.map

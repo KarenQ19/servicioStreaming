@@ -1,0 +1,21 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const adminController_1 = require("../controllers/adminController");
+const reportesController_1 = require("../controllers/reportesController");
+const auth_1 = require("../middleware/auth");
+const router = (0, express_1.Router)();
+router.use(auth_1.authenticate);
+router.use(auth_1.authorizeAdmin);
+router.get('/catalogo', adminController_1.adminController.consultarCatalogo);
+router.post('/servicios', adminController_1.adminController.agregarServicio);
+router.post('/servicios/insertar', adminController_1.adminController.agregarServicio);
+router.put('/servicios/:id', adminController_1.adminController.actualizarServicio);
+router.delete('/servicios/:id', adminController_1.adminController.eliminarServicio);
+router.get('/reportes/ventas', reportesController_1.reportesController.consultarReportesVentas);
+router.get('/reportes/actividad', reportesController_1.reportesController.consultarReportesActividad);
+router.get('/clientes', adminController_1.adminController.consultarClientes);
+router.post('/clientes/:id/suspender', adminController_1.adminController.suspenderCliente);
+router.get('/carritos/:idCliente', adminController_1.adminController.consultarCarrito);
+exports.default = router;
+//# sourceMappingURL=admin.js.map

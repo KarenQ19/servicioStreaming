@@ -1,0 +1,1 @@
+{"version":3,"file":"uploadOCR.d.ts","sourceRoot":"","sources":["../../src/middleware/uploadOCR.ts"],"names":[],"mappings":"AAOA,qBAAa,mBAAmB;IAC9B,OAAO,CAAC,MAAM,CAAgB;;IAS9B,OAAO,CAAC,gBAAgB;IAgDxB,gBAAgB,KACN,KAAK,GAAG,EAAE,KAAK,GAAG,EAAE,MAAM,GAAG;IAkDvC,yBAAyB,KACT,KAAK,GAAG,EAAE,KAAK,GAAG,EAAE,MAAM,GAAG;WAoDhC,uBAAuB,IAAI,OAAO,CAAC,IAAI,CAAC;CAkCtD"}
