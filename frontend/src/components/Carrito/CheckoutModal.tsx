@@ -753,4 +753,17 @@ export default function CheckoutModal({ isOpen, onClose, onSuccess }: CheckoutMo
             >
               Cancelar
             </button>
-   
+            
+            <button
+              onClick={procesarSuscripcion}
+              className="btn-primary"
+              disabled={procesando}
+            >
+              {procesando ? 'Procesando...' : `Pagar ${formatearPrecio(parseFloat(resumen?.total || '0'))}`}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
