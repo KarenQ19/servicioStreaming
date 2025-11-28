@@ -6,12 +6,12 @@ import {
   eliminarItem,
   vaciarCarrito
 } from '../controllers/carritoController';
-import { authenticate } from '../middleware/auth';
+import { authenticate, authorizeClient } from '../middleware/auth';
 
 const router = Router();
 
 // Todas las rutas requieren autenticación
-router.use(authenticate);
+router.use(authenticate, authorizeClient);
 
 // GET /api/carrito - Obtener carrito del cliente
 router.get('/', obtenerCarrito);

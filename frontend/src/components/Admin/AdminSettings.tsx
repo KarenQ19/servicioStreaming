@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Save, 
   RefreshCw, 
@@ -8,8 +8,10 @@ import {
   Globe,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  CreditCard
 } from 'lucide-react';
+import { adminService, type PaymentConfig, type TransferData } from '../../services/adminService';
 
 interface SystemSettings {
   siteName: string;
@@ -41,6 +43,22 @@ const AdminSettings = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>({});
+  const [transferForm, setTransferForm] = useState<TransferData>({});
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+
+  useEffect(() => {
+    const cargarConfigPagos = async () => {
+      try {
+        const cfg = await adminService.obtenerConfiguracionPagos();
+        setPaymentConfig(cfg);
+        setTransferForm(cfg.transferencia || {});
+      } catch (error) {
+        console.error('Error cargando configuración de pagos:', error);
+      }
+    };
+    cargarConfigPagos();
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -64,8 +82,45 @@ const AdminSettings = () => {
     }));
   };
 
+  const handleTransferChange = (key: keyof TransferData, value: string) => {
+    setTransferForm(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleSaveTransfer = async () => {
+    setIsSavingPayment(true);
+    try {
+      const cfg = await adminService.actualizarTransferencia(transferForm);
+      setPaymentConfig(cfg);
+      alert('Datos de transferencia guardados');
+    } catch (error) {
+      console.error('Error guardando transferencia:', error);
+      alert('Error al guardar datos de transferencia');
+    } finally {
+      setIsSavingPayment(false);
+    }
+  };
+
+  const handleQrUpload = async (file?: File) => {
+    if (!file) return;
+    setIsSavingPayment(true);
+    try {
+      const cfg = await adminService.subirQr(file);
+      setPaymentConfig(cfg);
+      alert('QR actualizado');
+    } catch (error) {
+      console.error('Error subiendo QR:', error);
+      alert('Error al subir QR');
+    } finally {
+      setIsSavingPayment(false);
+    }
+  };
+
   const tabs = [
     { id: 'general', label: 'General', icon: Globe },
+    { id: 'payments', label: 'Pagos', icon: CreditCard },
     { id: 'security', label: 'Seguridad', icon: Shield },
     { id: 'notifications', label: 'Notificaciones', icon: Bell },
     { id: 'database', label: 'Base de Datos', icon: Database },
@@ -73,23 +128,23 @@ const AdminSettings = () => {
   ];
 
   return (
-    <div className="admin-settings">
+    <div className="admin-settings space-y-4">
       {/* Header */}
-      <div className="settings-header">
+      <div className="settings-header bg-white border border-gray-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="header-left">
-          <h2>Configuración del Sistema</h2>
-          <p>Administra la configuración general de la plataforma</p>
+          <h2 className="text-xl font-semibold text-gray-900">Configuración del Sistema</h2>
+          <p className="text-sm text-gray-600">Administra la configuración general de la plataforma</p>
         </div>
-        <div className="header-actions">
+        <div className="header-actions flex gap-2">
           <button 
-            className="btn-secondary"
+            className="btn-secondary flex items-center gap-2"
             onClick={() => window.location.reload()}
           >
             <RefreshCw size={16} />
             Restablecer
           </button>
           <button 
-            className="btn-primary"
+            className="btn-primary flex items-center gap-2"
             onClick={handleSave}
             disabled={isSaving}
           >
@@ -99,28 +154,30 @@ const AdminSettings = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="settings-tabs">
-        {tabs.map(tab => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <Icon size={18} />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        {/* Tabs */}
+        <div className="settings-tabs flex flex-wrap border-b border-gray-200">
+          {tabs.map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon size={18} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* Tab Content */}
-      <div className="settings-content">
+        {/* Tab Content */}
+        <div className="settings-content p-6 space-y-6">
         {activeTab === 'general' && (
-          <div className="settings-section">
-            <h3>Configuración General</h3>
+          <div className="settings-section card">
+            <h3 className="section-title">Configuración General</h3>
+            <p className="section-subtitle">Datos básicos de la plataforma</p>
             <div className="settings-grid">
               <div className="setting-item">
                 <label>Nombre del Sitio</label>
@@ -132,7 +189,7 @@ const AdminSettings = () => {
                 />
               </div>
 
-              <div className="setting-item">
+              <div className="setting-item col-span-2">
                 <label>Descripción</label>
                 <textarea
                   value={settings.siteDescription}
@@ -182,6 +239,100 @@ const AdminSettings = () => {
                   max="1440"
                 />
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'payments' && (
+          <div className="settings-section card">
+            <h3 className="section-title">Pagos: QR y Transferencia</h3>
+            <p className="section-subtitle">Configura la imagen QR y los datos de transferencia que verá el cliente.</p>
+            <div className="settings-grid">
+              <div className="setting-item col-span-2">
+                <label>Imagen QR (visible para el cliente)</label>
+                <div className="flex items-start gap-4">
+                  {paymentConfig.qrImageBase64 && (
+                    <img
+                      src={paymentConfig.qrImageBase64}
+                      alt="QR actual"
+                      className="w-32 h-32 object-contain rounded border"
+                    />
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg"
+                      onChange={(e) => handleQrUpload(e.target.files?.[0] || undefined)}
+                      disabled={isSavingPayment}
+                    />
+                    <small className="text-gray-500">Sube un PNG/JPG. Esta imagen se mostrará al cliente para pagos QR.</small>
+                  </div>
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <label>Nombre del titular</label>
+                <input
+                  type="text"
+                  value={transferForm.titular || ''}
+                  onChange={(e) => handleTransferChange('titular', e.target.value)}
+                  placeholder="Titular de la cuenta"
+                />
+              </div>
+              <div className="setting-item">
+                <label>Documento</label>
+                <input
+                  type="text"
+                  value={transferForm.documento || ''}
+                  onChange={(e) => handleTransferChange('documento', e.target.value)}
+                  placeholder="CI/RUT/Documento"
+                />
+              </div>
+              <div className="setting-item">
+                <label>Banco</label>
+                <input
+                  type="text"
+                  value={transferForm.banco || ''}
+                  onChange={(e) => handleTransferChange('banco', e.target.value)}
+                  placeholder="Banco"
+                />
+              </div>
+              <div className="setting-item">
+                <label>Tipo de cuenta</label>
+                <input
+                  type="text"
+                  value={transferForm.tipoCuenta || ''}
+                  onChange={(e) => handleTransferChange('tipoCuenta', e.target.value)}
+                  placeholder="Cuenta corriente / ahorro"
+                />
+              </div>
+              <div className="setting-item">
+                <label>Número de cuenta</label>
+                <input
+                  type="text"
+                  value={transferForm.numeroCuenta || ''}
+                  onChange={(e) => handleTransferChange('numeroCuenta', e.target.value)}
+                  placeholder="000000000"
+                />
+              </div>
+              <div className="setting-item">
+                <label>Correo para notificación</label>
+                <input
+                  type="email"
+                  value={transferForm.correo || ''}
+                  onChange={(e) => handleTransferChange('correo', e.target.value)}
+                  placeholder="correo@banco.com"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:justify-end">
+              <button
+                className="btn-primary"
+                onClick={handleSaveTransfer}
+                disabled={isSavingPayment}
+              >
+                {isSavingPayment ? 'Guardando...' : 'Guardar configuración de pagos'}
+              </button>
             </div>
           </div>
         )}
@@ -404,6 +555,7 @@ const AdminSettings = () => {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 };

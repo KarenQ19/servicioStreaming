@@ -1,33 +1,70 @@
 import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Home() {
+  const { isAuthenticated, user } = useAuth();
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <div className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl md:text-6xl">
-              Tu plataforma de
-              <span className="text-blue-600"> streaming favorita</span>
-            </h1>
-            <p className="mt-6 max-w-2xl mx-auto text-xl text-gray-600">
-              Descubre y gestiona todos tus servicios de streaming en un solo lugar. 
-              Encuentra el contenido que amas y optimiza tus suscripciones.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                to="/register"
-                className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                Comenzar Gratis
-              </Link>
-              <Link
-                to="/login"
-                className="bg-white text-gray-700 px-8 py-3 rounded-lg text-lg font-medium border border-gray-300 hover:bg-gray-50 transition-colors"
-              >
-                Iniciar Sesión
-              </Link>
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-7 space-y-6">
+              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-sm px-3 py-1 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Plataforma activa y segura para tus suscripciones
+              </div>
+              <h1 className="text-4xl sm:text-5xl font-bold leading-tight">
+                {isAuthenticated
+                  ? `Hola ${user?.nombre || 'cliente'}, organiza y paga en segundos`
+                  : 'Gestiona tus servicios de streaming sin complicaciones'}
+              </h1>
+              <p className="text-lg text-white/80 max-w-2xl">
+                Centraliza tus pagos, credenciales y suscripciones en un solo lugar. Seguimiento en tiempo real, validación de comprobantes y métricas claras para que nunca pierdas control.
+              </p>
+              {isAuthenticated && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Link to="/dashboard" className="bg-white text-gray-900 rounded-xl p-4 shadow hover:shadow-lg transition flex flex-col gap-1">
+                    <span className="text-sm text-gray-500">Dashboard</span>
+                    <span className="text-lg font-semibold">Suscripciones y accesos</span>
+                  </Link>
+                  <Link to="/historial-pagos" className="bg-white/10 border border-white/20 rounded-xl p-4 hover:bg-white/15 transition flex flex-col gap-1">
+                    <span className="text-sm text-white/70">Pagos</span>
+                    <span className="text-lg font-semibold text-white">Historial y estados</span>
+                  </Link>
+                  <Link to="/catalogo" className="bg-white/10 border border-white/20 rounded-xl p-4 hover:bg-white/15 transition flex flex-col gap-1">
+                    <span className="text-sm text-white/70">Catálogo</span>
+                    <span className="text-lg font-semibold text-white">Explorar servicios</span>
+                  </Link>
+                </div>
+              )}
+              {!isAuthenticated && (
+                <p className="text-white/80">
+                  Inicia sesión desde la barra superior para continuar donde lo dejaste.
+                </p>
+              )}
+            </div>
+            <div className="lg:col-span-5">
+              <div className="bg-white text-gray-900 rounded-2xl shadow-xl p-6 space-y-4">
+                <p className="text-sm text-gray-500">Instantáneas del sistema</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-gray-50">
+                    <p className="text-sm text-gray-500">Validaciones OCR</p>
+                    <p className="text-2xl font-bold text-green-600">Automático</p>
+                    <p className="text-xs text-gray-500 mt-1">Sube comprobantes y valida al instante</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-gray-50">
+                    <p className="text-sm text-gray-500">Pagos QR y Transferencia</p>
+                    <p className="text-2xl font-bold text-blue-600">Listos</p>
+                    <p className="text-xs text-gray-500 mt-1">Configura una sola vez y cobra al vuelo</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-gray-50 col-span-2">
+                    <p className="text-sm text-gray-500">Métricas en vivo</p>
+                    <p className="text-lg font-semibold">Suscripciones, ingresos y pendientes en un panel claro.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

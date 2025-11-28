@@ -8,7 +8,7 @@ import {
   Settings,
   TrendingUp
 } from 'lucide-react';
-import AdminNavbar from '../components/Admin/AdminNavbar';
+import Navbar from '../components/Navbar';
 import AdminDashboard from '../components/Admin/AdminDashboard';
 import AdminServices from '../components/Admin/AdminServices';
 import AdminUsers from '../components/Admin/AdminUsers';
@@ -99,8 +99,8 @@ const AdminPanel = () => {
 
   return (
     <div className="admin-panel">
-      <AdminNavbar />
-      
+      {/* Navbar global */}
+      <Navbar />
       <div className="admin-content">
         {/* Sidebar */}
         <aside className="admin-sidebar">

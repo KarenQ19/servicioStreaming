@@ -18,6 +18,7 @@ const AdminLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const topOffset = '80px'; // altura navbar principal (ajustado)
 
   const navigation = [
     { name: 'Dashboard', href: '/admin', icon: HomeIcon },
@@ -25,7 +26,8 @@ const AdminLayout: React.FC = () => {
     { name: 'Clientes', href: '/admin/clientes', icon: UsersIcon },
     { name: 'Carritos', href: '/admin/carritos', icon: ShoppingCartIcon },
     { name: 'Reportes', href: '/admin/reportes', icon: DocumentChartBarIcon },
-    { name: 'Métricas', href: '/admin/metricas', icon: ChartBarIcon },
+    { name: 'Metricas', href: '/admin/metricas', icon: ChartBarIcon },
+    { name: 'Configuracion', href: '/admin/configuracion', icon: CogIcon },
   ];
 
   const handleLogout = async () => {
@@ -34,7 +36,7 @@ const AdminLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" style={{ paddingTop: topOffset }}>
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
@@ -94,8 +96,11 @@ const AdminLayout: React.FC = () => {
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 shadow-sm">
+      <div
+        className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col z-30"
+        style={{ top: topOffset, height: `calc(100vh - ${topOffset})` }}
+      >
+        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 shadow-sm h-full">
           <div className="flex h-16 items-center px-4 border-b border-gray-200">
             <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
           </div>
@@ -146,7 +151,10 @@ const AdminLayout: React.FC = () => {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <div className="sticky top-0 z-40 flex h-16 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+        <div
+          className="sticky z-20 flex h-16 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8"
+          style={{ top: topOffset }}
+        >
           <button
             type="button"
             className="-m-2.5 p-2.5 text-gray-700 lg:hidden"

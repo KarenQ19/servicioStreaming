@@ -37,9 +37,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Si no requiere autenticación y está autenticado, redirigir al dashboard
+  // Si no requiere autenticación y está autenticado, redirigir al inicio
   if (!requireAuth && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { adminService, type ClienteAdmin, type FiltrosClientes, type SuspenderClienteData } from '../../services/adminService';
 import type { CarritoItem } from '../../types';
 import {
@@ -50,6 +51,7 @@ const AdminUsers: React.FC = () => {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteAdmin | null>(null);
   const [clienteToSuspend, setClienteToSuspend] = useState<ClienteAdmin | null>(null);
   const [carritoData, setCarritoData] = useState<CarritoResponse | null>(null);
+  const location = useLocation();
 
   // Form state
   const [suspendForm, setSuspendForm] = useState<SuspenderClienteData>({
@@ -75,6 +77,18 @@ const AdminUsers: React.FC = () => {
   useEffect(() => {
     cargarClientes();
   }, [filtros]);
+
+  // Abrir modal directo si se pasa ?cliente=id
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const clienteId = params.get('cliente');
+    if (clienteId && clientes.length) {
+      const encontrado = clientes.find(c => c.id === clienteId);
+      if (encontrado) {
+        handleVerCliente(encontrado);
+      }
+    }
+  }, [location.search, clientes]);
 
   // Handle client actions
   const handleVerCliente = (cliente: ClienteAdmin) => {

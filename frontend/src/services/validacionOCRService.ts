@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, API_BASE_URL } from './api';
 
 export interface ResultadoValidacionOCR {
   esValido: boolean;
@@ -76,7 +76,23 @@ class ValidacionOCRService {
         },
       });
 
-      return response.data.data || response.data;
+      // El backend puede devolver:
+      // - { data: { ...resultado } }
+      // - { exito: true, validacion: { ...resultado } }
+      const payload = response.data;
+      if (payload?.data) {
+        return payload.data;
+      }
+      if (payload?.validacion) {
+        return {
+          esValido: payload.validacion.esValido,
+          porcentajeCoincidencia: payload.validacion.porcentajeCoincidencia,
+          datosExtraidos: payload.validacion.datosExtraidos,
+          coincidencias: payload.validacion.coincidencias,
+          mensaje: payload.mensaje || ''
+        } as ResultadoValidacionOCR;
+      }
+      return payload;
     } catch (error: any) {
       const mensaje =
         error?.response?.data?.error ||
@@ -88,7 +104,7 @@ class ValidacionOCRService {
   }
 
   
-async obtenerHistorial(filtros?: {
+  async obtenerHistorial(filtros?: {
     page?: number;
     limit?: number;
     esValido?: boolean;
@@ -108,7 +124,30 @@ async obtenerHistorial(filtros?: {
     }
 
     const response = await api.get(`/qr/validaciones/historial?${params.toString()}`);
-    return response.data.data;
+    const payload = response.data;
+    // Backend responde { exito, datos: { validaciones, paginacion } }
+    if (payload?.datos) return payload.datos;
+    if (payload?.data) return payload.data;
+    return payload;
+  }
+
+  async obtenerHistorialAdmin(filtros?: {
+    page?: number;
+    limit?: number;
+  }): Promise<HistorialValidacionesResponse> {
+    const params = new URLSearchParams();
+    if (filtros) {
+      Object.entries(filtros).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    const response = await api.get(`/qr/validaciones/admin?${params.toString()}`);
+    const payload = response.data;
+    if (payload?.datos) return payload.datos;
+    if (payload?.data) return payload.data;
+    return payload;
   }
 
   async obtenerValidacion(id: string): Promise<ValidacionOCR> {
@@ -150,6 +189,18 @@ async obtenerHistorial(filtros?: {
       responseType: 'blob',
     });
     return response.data;
+  }
+
+  async descargarImagenAdmin(validacionId: string): Promise<Blob> {
+    const response = await api.get(`/qr/validaciones/admin/${validacionId}/imagen`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  obtenerUrlComprobante(validacionId: string, esAdmin?: boolean): string {
+    const adminPath = esAdmin ? '/admin' : '';
+    return `${API_BASE_URL}/qr/validaciones${adminPath}/${validacionId}/imagen`;
   }
 
   // Métodos auxiliares

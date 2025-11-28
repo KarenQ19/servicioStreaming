@@ -14,6 +14,8 @@ export interface Suscripcion {
     descripcion: string;
     precio: number;
     categoria: string;
+    logoUrl?: string;
+    logo_url?: string;
     imagen?: string;
   };
   credenciales?: {

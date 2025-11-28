@@ -28,6 +28,7 @@ export default function ServicioDetalle() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { agregarItem, obtenerCarrito, state } = useCarrito();
+  const isAdmin = user?.role === 'ADMINISTRADOR';
   
   const [servicio, setServicio] = useState<Servicio | null>(null);
   const [loading, setLoading] = useState(true);
@@ -168,6 +169,8 @@ export default function ServicioDetalle() {
     );
   }
 
+  const disponible = isAdmin ? true : servicio.disponible;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -216,11 +219,11 @@ export default function ServicioDetalle() {
                         {servicio.categoria}
                       </span>
                       <span className={`inline-block text-sm px-3 py-1 rounded-full ${
-                        servicio.disponible 
+                        disponible 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {servicio.disponible ? 'Disponible' : 'No disponible'}
+                        {disponible ? 'Disponible' : 'No disponible'}
                       </span>
                     </div>
                   </div>
@@ -352,17 +355,17 @@ export default function ServicioDetalle() {
               {disponibilidad && (
                 <div className="mb-6">
                   <div className={`flex items-center gap-2 p-3 rounded-lg ${
-                    disponibilidad.disponible 
+                    disponibilidad.disponible || isAdmin
                       ? 'bg-green-50 text-green-800' 
                       : 'bg-red-50 text-red-800'
                   }`}>
-                    {disponibilidad.disponible ? (
+                    {disponibilidad.disponible || isAdmin ? (
                       <Check className="h-5 w-5" />
                     ) : (
                       <X className="h-5 w-5" />
                     )}
                     <span className="text-sm font-medium">
-                      {disponibilidad.disponible 
+                      {(disponibilidad.disponible || isAdmin)
                         ? 'Disponible para suscripción' 
                         : 'No disponible actualmente'
                       }
@@ -400,68 +403,70 @@ export default function ServicioDetalle() {
               </div>
 
               {/* Botones de acción */}
-              <div className="space-y-3">
-                {/* Botón de agregar al carrito */}
-                <button
-                  onClick={handleAgregarCarrito}
-                  disabled={!servicio.disponible || agregandoCarrito || estaEnCarrito()}
-                  className={`w-full py-3 px-4 rounded-md font-medium transition-colors flex items-center justify-center gap-2 ${
-                    servicio.disponible && !agregandoCarrito && !estaEnCarrito()
-                      ? 'bg-green-600 text-white hover:bg-green-700'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {agregandoCarrito ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Agregando...
-                    </>
-                  ) : estaEnCarrito() ? (
-                    <>
-                      <Check className="h-4 w-4" />
-                      En el carrito
-                    </>
-                  ) : servicio.disponible ? (
-                    user ? (
+              {user?.role !== 'ADMINISTRADOR' && (
+                <div className="space-y-3">
+                  {/* Botón de agregar al carrito */}
+                  <button
+                    onClick={handleAgregarCarrito}
+                    disabled={!disponible || agregandoCarrito || estaEnCarrito()}
+                    className={`w-full py-3 px-4 rounded-md font-medium transition-colors flex items-center justify-center gap-2 ${
+                      disponible && !agregandoCarrito && !estaEnCarrito()
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {agregandoCarrito ? (
                       <>
-                        <ShoppingCart className="h-4 w-4" />
-                        Agregar al carrito
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Agregando...
                       </>
+                    ) : estaEnCarrito() ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        En el carrito
+                      </>
+                    ) : disponible ? (
+                      user ? (
+                        <>
+                          <ShoppingCart className="h-4 w-4" />
+                          Agregar al carrito
+                        </>
+                      ) : (
+                        'Iniciar sesión para agregar'
+                      )
                     ) : (
-                      'Iniciar sesión para agregar'
-                    )
-                  ) : (
-                    'No disponible'
-                  )}
-                </button>
+                      'No disponible'
+                    )}
+                  </button>
 
-                {/* Botón de suscripción directa */}
-                <button
-                  onClick={handleSuscripcion}
-                  disabled={!servicio.disponible || suscribiendo}
-                  className={`w-full py-3 px-4 rounded-md font-medium transition-colors ${
-                    servicio.disponible && !suscribiendo
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {suscribiendo ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Procesando...
-                    </div>
-                  ) : servicio.disponible ? (
-                    user ? 'Suscribirse ahora' : 'Iniciar sesión para suscribirse'
-                  ) : (
-                    'No disponible'
-                  )}
-                </button>
-              </div>
+                  {/* Botón de suscripción directa */}
+                  <button
+                    onClick={handleSuscripcion}
+                    disabled={!disponible || suscribiendo}
+                    className={`w-full py-3 px-4 rounded-md font-medium transition-colors ${
+                      disponible && !suscribiendo
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {suscribiendo ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Procesando...
+                      </div>
+                    ) : disponible ? (
+                      user ? 'Suscribirse ahora' : 'Iniciar sesión para suscribirse'
+                    ) : (
+                      'No disponible'
+                    )}
+                  </button>
 
-              {!user && (
-                <p className="text-xs text-gray-500 text-center mt-2">
-                  Necesitas una cuenta para suscribirte
-                </p>
+                  {!user && (
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                      Necesitas una cuenta para suscribirte
+                    </p>
+                  )}
+                </div>
               )}
 
               {/* Garantía */}

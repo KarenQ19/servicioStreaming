@@ -51,13 +51,36 @@ const obtenerMetricasCliente = async (req, res) => {
                 }
             }
         });
-        const gastoMensual = suscripciones.reduce((total, sub) => total + sub.servicio.precio, 0);
-        const pagos = await prisma.pago.findMany({
+        const pagosCompletados = await prisma.pago.findMany({
             where: {
-                clienteId: userId
-            }
+                clienteId: userId,
+                estado: 'COMPLETADO'
+            },
+            select: { id: true, monto: true, suscripcionId: true, carritoId: true, createdAt: true }
         });
-        const gastoTotal = pagos.reduce((total, pago) => total + pago.monto, 0);
+        const ahora = new Date();
+        const mesActual = ahora.getMonth();
+        const anioActual = ahora.getFullYear();
+        const pagosMesActual = pagosCompletados.filter(p => {
+            const fecha = new Date(p.createdAt);
+            return fecha.getMonth() === mesActual && fecha.getFullYear() === anioActual;
+        });
+        const dedupePorReferencia = (pagos) => {
+            const mapPagos = new Map();
+            pagos
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .forEach(p => {
+                const key = p.suscripcionId || p.carritoId || `single-${p.id}`;
+                if (!mapPagos.has(key)) {
+                    mapPagos.set(key, p);
+                }
+            });
+            return Array.from(mapPagos.values());
+        };
+        const pagosUnicos = dedupePorReferencia(pagosCompletados);
+        const pagosMesUnicos = dedupePorReferencia(pagosMesActual);
+        const gastoTotal = pagosUnicos.reduce((total, pago) => total + Number(pago.monto || 0), 0);
+        const gastoMensual = pagosMesUnicos.reduce((total, pago) => total + Number(pago.monto || 0), 0);
         const serviciosRecomendados = await prisma.servicio.findMany({
             where: {
                 NOT: {
@@ -90,10 +113,11 @@ const obtenerMetricasCliente = async (req, res) => {
         });
         return res.json({
             suscripcionesActivas: suscripciones.length,
-            gastoMensual,
-            gastoTotal,
+            gastoMensual: Math.round(gastoMensual),
+            gastoTotal: Math.round(gastoTotal),
             ultimosPagos,
-            serviciosRecomendados
+            serviciosRecomendados,
+            ahorroPotencial: 0
         });
     }
     catch (error) {

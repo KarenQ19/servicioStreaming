@@ -4,6 +4,7 @@ import type {
   User, 
   Carrito
 } from '../types';
+import { api as apiInstance } from './api';
 
 // Interfaces específicas para administración
 export interface ServicioAdmin extends Servicio {
@@ -180,6 +181,21 @@ export interface ActualizarServicioData extends Partial<CrearServicioData> {}
 export interface SuspenderClienteData {
   motivo: string;
   duracion?: string;
+}
+
+export interface TransferData {
+  titular?: string;
+  documento?: string;
+  banco?: string;
+  tipoCuenta?: string;
+  numeroCuenta?: string;
+  correo?: string;
+}
+
+export interface PaymentConfig {
+  qrImagePath?: string | null;
+  qrImageBase64?: string | null;
+  transferencia?: TransferData;
 }
 
 export const adminService = {
@@ -374,5 +390,25 @@ export const adminService = {
     
     console.log('✅ Reporte exportado');
     return response.data;
+  },
+
+  // ===== CONFIGURACION DE PAGOS (ADMIN) =====
+  async obtenerConfiguracionPagos(): Promise<PaymentConfig> {
+    const response = await apiInstance.get('/payment-config');
+    return response.data.data;
+  },
+
+  async actualizarTransferencia(data: TransferData): Promise<PaymentConfig> {
+    const response = await apiInstance.put('/payment-config/transferencia', data);
+    return response.data.data;
+  },
+
+  async subirQr(file: File): Promise<PaymentConfig> {
+    const formData = new FormData();
+    formData.append('qrImage', file);
+    const response = await apiInstance.post('/payment-config/qr', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data.data;
   }
 };

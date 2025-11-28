@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CreditCard, CheckCircle, AlertCircle, DollarSign, Loader2, QrCode, Upload } from 'lucide-react';
 import { useCarrito } from '../../context/CarritoContext';
 import { suscripcionService } from '../../services/suscripcionService';
 import { pagoService, type MetodoPago, type QRCode } from '../../services/pagoService';
+import { paymentConfigService, type TransferData } from '../../services/paymentConfigService';
 import ValidacionOCR from '../pagos/ValidacionOCR';
 import './CheckoutModal.css';
 
@@ -27,6 +29,7 @@ type PasoCheckout = 'checkout' | 'procesando' | 'qr' | 'transferencia-info' | 'v
 export default function CheckoutModal({ isOpen, onClose, onSuccess }: CheckoutModalProps) {
   const { state, obtenerCarrito } = useCarrito();
   const { carrito, resumen } = state;
+  const portalRef = useRef<HTMLDivElement | null>(null);
   
   const [paso, setPaso] = useState<PasoCheckout>('checkout');
   const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] = useState<string>('');
@@ -42,6 +45,7 @@ export default function CheckoutModal({ isOpen, onClose, onSuccess }: CheckoutMo
   
   // Estados para validación OCR
   const [pagoActual, setPagoActual] = useState<any>(null);
+  const [transferenciaConfig, setTransferenciaConfig] = useState<TransferData | null>(null);
   
   const [datosFacturacion, setDatosFacturacion] = useState({
     nombre: '',
@@ -53,7 +57,30 @@ export default function CheckoutModal({ isOpen, onClose, onSuccess }: CheckoutMo
   const metodoSeleccionado = metodosDisponibles.find(m => m.id === metodoPagoSeleccionado);
   const pagoParaValidacion = pagoActual || (qrActual?.pagoId ? { id: qrActual.pagoId, monto: resumen?.total ? Number(resumen.total) : 0 } : null);
 
+  // Crear contenedor para portal
+  useEffect(() => {
+    const el = document.createElement('div');
+    portalRef.current = el;
+    document.body.appendChild(el);
+    return () => {
+      if (portalRef.current && portalRef.current.parentNode === document.body) {
+        document.body.removeChild(portalRef.current);
+      }
+      portalRef.current = null;
+    };
+  }, []);
+
   const obtenerDatosTransferencia = () => {
+    if (transferenciaConfig) {
+      return {
+        titular: transferenciaConfig.titular || 'Titular de la cuenta',
+        documento: transferenciaConfig.documento || 'Carnet de identidad',
+        banco: transferenciaConfig.banco || 'Banco',
+        tipoCuenta: transferenciaConfig.tipoCuenta || 'Cuenta corriente',
+        numeroCuenta: transferenciaConfig.numeroCuenta || '00000000',
+        correo: transferenciaConfig.correo || ''
+      };
+    }
     const cfg = (metodoSeleccionado?.configuracion || {}) as Record<string, any>;
     return {
       titular: cfg?.titular || import.meta.env.VITE_TRANSFER_TITULAR || 'Titular de la cuenta',
@@ -71,6 +98,7 @@ export default function CheckoutModal({ isOpen, onClose, onSuccess }: CheckoutMo
       if (metodosDisponibles.length === 0) {
         cargarMetodosPago();
       }
+      cargarConfigPagos();
       resetearFormulario();
     }
   }, [isOpen]);
@@ -143,6 +171,15 @@ export default function CheckoutModal({ isOpen, onClose, onSuccess }: CheckoutMo
       console.error('Error al cargar métodos de pago:', error);
       setMetodosDisponibles([]);
       setError('Error al cargar métodos de pago');
+    }
+  };
+
+  const cargarConfigPagos = async () => {
+    try {
+      const cfg = await paymentConfigService.obtenerConfig();
+      setTransferenciaConfig(cfg.transferencia || null);
+    } catch (error) {
+      console.error('Error al cargar configuración de pagos:', error);
     }
   };
 
@@ -338,11 +375,20 @@ export default function CheckoutModal({ isOpen, onClose, onSuccess }: CheckoutMo
     }
   };
 
-  const manejarValidacionOCRCompletada = (resultado: any) => {
+  const manejarValidacionOCRCompletada = async (resultado: any) => {
     const esValido = resultado?.exito ?? resultado?.validacion?.esValido;
     if (esValido) {
       setPaso('completado');
-      obtenerCarrito();
+      await obtenerCarrito();
+      try {
+        await pagoService.procesarPagosCompletados();
+      } catch (err) {
+        console.error('Error al procesar pagos completados:', err);
+      }
+      // Refrescar métricas/dashboard después de validar correctamente
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
 
       setTimeout(() => {
         onSuccess();
@@ -395,18 +441,9 @@ export default function CheckoutModal({ isOpen, onClose, onSuccess }: CheckoutMo
     }
   };
 
-  if (!isOpen || !carrito) return null;
+  if (!isOpen || !carrito || !portalRef.current) return null;
 
-  const tituloPaso =
-    paso === 'checkout' ? 'Completar Suscripción' :
-    paso === 'procesando' ? 'Procesando Pago...' :
-    paso === 'qr' ? 'Pago con QR' :
-    paso === 'transferencia-info' ? 'Datos para transferencia' :
-    paso === 'validacion-ocr' ? 'Validar Comprobante' :
-    paso === 'completado' ? '¡Compra Exitosa!' :
-    'Error en el Pago';
-
-  return (
+  return createPortal(
     <div className="checkout-overlay" onClick={cerrarModal}>
       <div className="checkout-modal" onClick={(e) => e.stopPropagation()}>
         <div className="checkout-header">
@@ -574,7 +611,7 @@ export default function CheckoutModal({ isOpen, onClose, onSuccess }: CheckoutMo
               <div className="qr-container">
                 <div className="qr-code">
                    <img 
-                     src={`data:image/png;base64,${qrActual.imagenBase64}`} 
+                     src={qrActual.qrImage || (qrActual.imagenBase64 ? `data:image/png;base64,${qrActual.imagenBase64}` : '')} 
                      alt="Codigo QR para pago" 
                      className="qr-image"
                    />
@@ -765,5 +802,5 @@ export default function CheckoutModal({ isOpen, onClose, onSuccess }: CheckoutMo
         )}
       </div>
     </div>
-  );
+  , portalRef.current);
 }

@@ -1,0 +1,11 @@
+{
+  "qrImagePath": "C:\\Users\\Karen\\Desktop\\servicioStreaming\\backend\\uploads\\qr\\admin-qr.jpeg",
+  "transferencia": {
+    "titular": "Karen Quispe Mamani",
+    "documento": "6988018",
+    "banco": "Banco Bisa",
+    "tipoCuenta": "Caja de ahorro",
+    "numeroCuenta": "1040385401",
+    "correo": "karen.quispe244@gmail.com"
+  }
+}

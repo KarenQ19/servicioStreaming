@@ -36,8 +36,9 @@ export default function Dashboard() {
     suscripcionesActivas: 0,
     gastoMensual: 0,
     gastoTotal: 0,
-    ultimosPagos: [],
-    serviciosRecomendados: []
+    ahorroPotencial: 0,
+    ultimosPagos: [] as any[],
+    serviciosRecomendados: [] as any[]
   });
 
   useEffect(() => {
@@ -113,7 +114,7 @@ export default function Dashboard() {
     const renderAdminContent = () => {
       switch (activeSection) {
         case 'dashboard':
-          return <AdminDashboard />;
+          return <AdminDashboard onNavigateSection={setActiveSection} />;
         case 'services':
           return <AdminServices />;
         case 'users':
@@ -186,6 +187,22 @@ export default function Dashboard() {
 
   // Dashboard para clientes
   console.log('🎯 Renderizando dashboard de cliente para usuario:', user);
+  const categoriasFrecuentes = metricas.ultimosPagos
+    .map((p: any) => p?.servicio?.categoria)
+    .filter(Boolean);
+  const categoriaMasFrecuente = categoriasFrecuentes.length
+    ? categoriasFrecuentes.sort((a, b) =>
+        categoriasFrecuentes.filter(c => c === a).length -
+        categoriasFrecuentes.filter(c => c === b).length
+      ).pop()
+    : null;
+
+  const serviciosRecomendadosConRazon = metricas.serviciosRecomendados.map((s: any) => ({
+    ...s,
+    razon: categoriaMasFrecuente && s.categoria === categoriaMasFrecuente
+      ? `Similar a tus servicios de ${categoriaMasFrecuente}`
+      : 'Basado en tu historial reciente'
+  }));
   
   return (
     <div className="min-h-screen bg-gray-50">
@@ -201,76 +218,24 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+          {[
+            { label: 'Suscripciones Activas', value: isLoading ? '...' : metricas.suscripcionesActivas, color: 'from-blue-500 to-indigo-500', icon: '📄' },
+            { label: 'Gasto Mensual', value: isLoading ? '...' : `$${Math.round(metricas.gastoMensual)}`, color: 'from-emerald-500 to-teal-500', icon: '💳' },
+            { label: 'Gasto Total', value: isLoading ? '...' : `$${Math.round(metricas.gastoTotal)}`, color: 'from-purple-500 to-fuchsia-500', icon: '⏱️' },
+            { label: 'Ahorro Potencial', value: isLoading ? '...' : `$${Math.round((metricas as any).ahorroPotencial || 0)}`, color: 'from-amber-500 to-orange-500', icon: '⬆️' },
+          ].map((card) => (
+            <div key={card.label} className="relative overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition transform hover:-translate-y-0.5">
+              <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${card.color}`} />
+              <div className="relative p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">{card.label}</p>
+                  <p className="text-2xl font-semibold text-gray-900 mt-1">{card.value}</p>
                 </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Suscripciones Activas</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {isLoading ? '...' : metricas.suscripcionesActivas}
-                </p>
+                <div className="text-2xl">{card.icon}</div>
               </div>
             </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Gasto Mensual</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {isLoading ? '...' : `$${metricas.gastoMensual.toFixed(2)}`}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Gasto Total</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {isLoading ? '...' : `$${metricas.gastoTotal.toFixed(2)}`}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Ahorro Potencial</p>
-                <p className="text-2xl font-semibold text-gray-900">$15.00</p>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Main Content Grid */}
@@ -283,7 +248,7 @@ export default function Dashboard() {
           {/* Columna derecha - Servicios Recomendados */}
           <div className="lg:col-span-1">
             <ServiciosRecomendados 
-              servicios={metricas.serviciosRecomendados} 
+              servicios={serviciosRecomendadosConRazon} 
               isLoading={isLoading} 
             />
           </div>

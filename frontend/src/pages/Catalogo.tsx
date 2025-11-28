@@ -25,13 +25,34 @@ export default function Catalogo() {
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 12;
 
+  // Helper para derivar categorías desde un listado de servicios
+  const derivarCategorias = (servs: Servicio[]) => {
+    const mapa = new Map<string, number>();
+    servs.forEach((s) => {
+      if (s.categoria) {
+        mapa.set(s.categoria, (mapa.get(s.categoria) || 0) + 1);
+      }
+    });
+    const arr = Array.from(mapa.entries()).map(([categoria, count]) => ({ categoria, count }));
+    if (arr.length) setCategorias(arr);
+  };
+
   // Cargar categorías al montar el componente
   useEffect(() => {
     const cargarCategorias = async () => {
       try {
         const response = await catalogoService.obtenerCategorias();
-        if (response.success) {
+        if (response.success && response.data?.categorias?.length) {
           setCategorias(response.data.categorias);
+        } else {
+          // Fallback: obtener servicios para derivar categorías
+          const respServicios = await catalogoService.cliente.consultarServicios({
+            page: 1,
+            limit: 100,
+          });
+          if (respServicios.success && respServicios.data?.servicios) {
+            derivarCategorias(respServicios.data.servicios);
+          }
         }
       } catch (error) {
         console.error('Error al cargar categorías:', error);
@@ -54,21 +75,23 @@ export default function Catalogo() {
       let response;
       
       if (searchQuery.trim()) {
-        // Si hay búsqueda, usar la API de búsqueda
         response = await catalogoService.cliente.buscarServicios({
           q: searchQuery,
           categoria: selectedCategoria || undefined,
           precioMin: precioMin ? Number(precioMin) : undefined,
           precioMax: precioMax ? Number(precioMax) : undefined,
+          soloDisponibles,
           page: currentPage,
           limit: itemsPerPage,
         });
       } else {
-        // Si no hay búsqueda, usar la API de consulta con filtros
         response = await catalogoService.cliente.consultarServicios({
           page: currentPage,
           limit: itemsPerPage,
           categoria: selectedCategoria || undefined,
+          precioMin: precioMin ? Number(precioMin) : undefined,
+          precioMax: precioMax ? Number(precioMax) : undefined,
+          soloDisponibles,
           ordenarPor,
         });
       }
@@ -77,6 +100,9 @@ export default function Catalogo() {
         setServicios(response.data.servicios);
         setTotalPages(response.data.pagination.totalPages);
         setTotalItems(response.data.pagination.totalItems);
+        if (!categorias.length) {
+          derivarCategorias(response.data.servicios as Servicio[]);
+        }
       } else {
         setError('Error al cargar los servicios');
       }
@@ -161,9 +187,22 @@ export default function Catalogo() {
                   id="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar por nombre, descripción..."
+                  placeholder="Ej: Netflix, deportes, música..."
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 text-sm text-gray-500">
+                <span>Ejemplos:</span>
+                {['4K', 'Música', 'Deportes', 'Anime', 'Familiar'].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => { setSearchQuery(tag); setCurrentPage(1); }}
+                    className="px-2 py-1 rounded-full bg-gray-100 hover:bg-blue-50 text-gray-700 hover:text-blue-700 transition"
+                  >
+                    {tag}
+                  </button>
+                ))}
               </div>
             </div>
             <button
@@ -293,10 +332,32 @@ export default function Catalogo() {
                 >
                   <List className="h-5 w-5" />
                 </button>
-              </div>
             </div>
 
-            {/* Error */}
+            {/* Badges de estado */}
+            <div className="flex flex-wrap gap-2">
+              {soloDisponibles && (
+                <span className="inline-flex items-center gap-2 text-xs font-medium bg-green-50 text-green-700 px-3 py-1 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                  Solo disponibles
+                </span>
+              )}
+              {selectedCategoria && (
+                <span className="inline-flex items-center gap-2 text-xs font-medium bg-blue-50 text-blue-700 px-3 py-1 rounded-full">
+                  Categoría: {selectedCategoria}
+                  <button onClick={() => setSelectedCategoria('')} className="text-blue-500 hover:text-blue-700">×</button>
+                </span>
+              )}
+              {(precioMin || precioMax) && (
+                <span className="inline-flex items-center gap-2 text-xs font-medium bg-purple-50 text-purple-700 px-3 py-1 rounded-full">
+                  Precio: {precioMin || '0'} - {precioMax || '∞'}
+                  <button onClick={() => { setPrecioMin(''); setPrecioMax(''); }} className="text-purple-500 hover:text-purple-700">×</button>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Error */}
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
                 <p className="text-red-600">{error}</p>

@@ -13,6 +13,8 @@ import catalogoRoutes from './catalogo';
 import adminRoutes from './admin';
 import usersRoutes from './users';
 import credencialesRoutes from './credenciales';
+import paymentConfigRoutes from './paymentConfig';
+import adminPagosRoutes from './adminPagos';
 
 const router = express.Router();
 
@@ -36,6 +38,8 @@ router.use('/pagos', pagosRoutes);
 router.use('/qr', qrRoutes);
 router.use('/clientes', clientePagosRoutes);
 router.use('/users', usersRoutes);
+router.use('/payment-config', paymentConfigRoutes);
+router.use('/admin/pagos', adminPagosRoutes);
 
 // Rutas de administración
 router.use('/admin', adminRoutes);

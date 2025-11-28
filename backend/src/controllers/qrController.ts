@@ -37,12 +37,20 @@ export const qrController = {
       }
 
       const obtenerImagenQR = async (codigoQR: string) => {
-        const customQrPath = process.env.QR_IMAGE_PATH || path.join(__dirname, '../../uploads/qr/default.png');
-        if (customQrPath && fs.existsSync(customQrPath)) {
-          const buffer = await fs.promises.readFile(customQrPath);
+        // Permitir que el admin defina la imagen QR a mostrar (config file o env)
+        const { loadPaymentSettings } = await import('./paymentConfigController');
+        const settings = await loadPaymentSettings();
+        const adminQrPath = settings.qrImagePath || process.env.ADMIN_QR_IMAGE_PATH || process.env.QR_IMAGE_PATH;
+        const fallbackPath = path.join(__dirname, '../../uploads/qr/default.png');
+        const qrPath = (adminQrPath && fs.existsSync(adminQrPath)) ? adminQrPath
+          : (fs.existsSync(fallbackPath) ? fallbackPath : null);
+
+        if (qrPath) {
+          const buffer = await fs.promises.readFile(qrPath);
           const base64 = buffer.toString('base64');
           return `data:image/png;base64,${base64}`;
         }
+        // Si no hay imagen definida por el admin, generar un QR dinámico con el código
         return await QRCode.toDataURL(codigoQR);
       };
 

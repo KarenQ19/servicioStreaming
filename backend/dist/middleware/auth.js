@@ -29,7 +29,8 @@ const authorizeClient = (req, res, next) => {
         (0, response_1.sendError)(res, 'Authentication required', 401);
         return;
     }
-    if (req.user.role !== 'CLIENTE') {
+    const role = req.user.role;
+    if (role !== 'CLIENTE') {
         (0, response_1.sendError)(res, 'Access denied. Client role required', 403);
         return;
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { suscripcionService, type Suscripcion } from '../../services/suscripcionService';
 import { EyeIcon, EyeSlashIcon, CalendarIcon, CreditCardIcon, KeyIcon } from '@heroicons/react/24/outline';
+import { getServicioLogo } from '../../utils/serviceLogos';
 
 interface MisSuscripcionesProps {
   className?: string;
@@ -159,25 +160,43 @@ export default function MisSuscripciones({ className = '' }: MisSuscripcionesPro
             const credencialesVisible = credencialesVisibles[suscripcion.id] || false;
             
             return (
-              <div key={suscripcion.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+              <div
+                key={suscripcion.id}
+                className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition transform hover:-translate-y-0.5 bg-white"
+              >
                 {/* Header de la suscripción */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
                   <div className="flex items-center">
-                    <div className={`w-12 h-12 ${icono.color} rounded-lg flex items-center justify-center`}>
-                      <span className="text-white font-bold text-lg">{icono.inicial}</span>
+                    <div className="w-12 h-12 rounded-lg border border-gray-100 bg-gray-50 overflow-hidden flex items-center justify-center">
+                      <img
+                        src={getServicioLogo(
+                          suscripcion.servicio.nombre,
+                          (suscripcion.servicio as any).logoUrl || (suscripcion.servicio as any).logo_url,
+                          (suscripcion.servicio as any).imagen
+                        )}
+                        alt={suscripcion.servicio.nombre}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          const fallback = getServicioLogo(suscripcion.servicio.nombre);
+                          e.currentTarget.src = fallback;
+                        }}
+                      />
                     </div>
                     <div className="ml-4">
                       <h3 className="text-lg font-medium text-gray-900">{suscripcion.servicio.nombre}</h3>
                       <p className="text-sm text-gray-600">{suscripcion.servicio.categoria}</p>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold text-gray-900">${suscripcion.precio}/mes</p>
+                </div>
+                <div className="text-right">
+                    <p className="text-lg font-semibold text-gray-900">
+                      ${Math.round(suscripcion.servicio?.precio ?? suscripcion.precio ?? 0)}/mes
+                    </p>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${obtenerColorEstado(suscripcion.estado)}`}>
                       {suscripcion.estado}
                     </span>
                   </div>
-                </div>
+              </div>
 
                 {/* Información de fechas */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -271,7 +290,10 @@ export default function MisSuscripciones({ className = '' }: MisSuscripcionesPro
         </div>
 
         <div className="mt-6 pt-6 border-t border-gray-200">
-          <button className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+          <button
+            onClick={() => window.location.href = '/catalogo'}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+          >
             Explorar Más Servicios
           </button>
         </div>

@@ -4,4 +4,6 @@ export declare class ValidacionOCRController {
     static obtenerHistorialValidaciones(req: Request, res: Response): Promise<void>;
     private static validarDatosContraPago;
 }
+export declare const obtenerHistorialValidacionesAdmin: (req: Request, res: Response) => Promise<void>;
+export declare const obtenerImagenValidacionAdmin: (req: Request, res: Response) => Promise<void>;
 //# sourceMappingURL=validacionOCRController.d.ts.map

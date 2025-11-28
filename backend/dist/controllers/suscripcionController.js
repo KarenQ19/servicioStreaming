@@ -67,6 +67,7 @@ const obtenerSuscripciones = async (req, res) => {
                             descripcion: true,
                             precio: true,
                             categoria: true,
+                            logoUrl: true,
                             disponible: true,
                             caracteristicas: true
                         }

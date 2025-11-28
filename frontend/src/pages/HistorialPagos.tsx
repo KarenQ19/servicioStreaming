@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Filter, CreditCard, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { pagoService, type Pago, type ResumenPagosResponse } from '../services/pagoService';
+import { useAuth } from '../hooks/useAuth';
 
 export default function HistorialPagos() {
+  const { user } = useAuth();
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [resumen, setResumen] = useState<ResumenPagosResponse | null>(null);
   const [totalPaginas, setTotalPaginas] = useState(1);
@@ -15,22 +17,43 @@ export default function HistorialPagos() {
   const [paginaActual, setPaginaActual] = useState(1);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [resumenAdmin, setResumenAdmin] = useState<{
+    totalPagos: number;
+    montoTotal: number;
+    pendientes: number;
+    completados: number;
+    fallidos: number;
+  } | null>(null);
 
   useEffect(() => {
     cargarPagos();
-    cargarResumen();
+    if (user?.role !== 'ADMINISTRADOR') {
+      cargarResumen();
+    }
   }, [filtros, paginaActual]);
 
   const cargarPagos = async () => {
     try {
       setCargando(true);
-      const response = await pagoService.consultarHistorialPagos({
-        page: paginaActual,
-        limit: 10,
-        ...filtros
-      });
+      const params = { page: paginaActual, limit: 10, ...filtros };
+      const response = user?.role === 'ADMINISTRADOR'
+        ? await pagoService.consultarHistorialPagosAdmin(params)
+        : await pagoService.consultarHistorialPagos(params);
       setPagos(response.pagos || []);
       setTotalPaginas(response.paginacion.totalPaginas);
+      if (user?.role === 'ADMINISTRADOR' && (response as any).estadisticas) {
+        const est = (response as any).estadisticas;
+        const pendientes = est.estadisticasPorEstado?.find((e: any) => e.estado === 'PENDIENTE')?.cantidad || 0;
+        const completados = est.estadisticasPorEstado?.find((e: any) => e.estado === 'COMPLETADO')?.cantidad || 0;
+        const fallidos = est.estadisticasPorEstado?.find((e: any) => e.estado === 'FALLIDO')?.cantidad || 0;
+        setResumenAdmin({
+          totalPagos: est.totalPagos || 0,
+          montoTotal: est.montoTotal || 0,
+          pendientes,
+          completados,
+          fallidos
+        });
+      }
     } catch (error) {
       console.error('Error al cargar pagos:', error);
       setError('Error al cargar el historial de pagos');
@@ -96,7 +119,7 @@ export default function HistorialPagos() {
         </div>
 
         {/* Resumen Cards */}
-        {resumen && (
+        {(resumen && user?.role !== 'ADMINISTRADOR') || (resumenAdmin && user?.role === 'ADMINISTRADOR') ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
@@ -107,13 +130,9 @@ export default function HistorialPagos() {
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Total Pagos</dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      {(() => {
-                        const totalPagos = resumen.resumenGeneral?.totalPagos;
-                        if (typeof totalPagos === 'number') {
-                          return totalPagos;
-                        }
-                        return 0;
-                      })()}
+                      {user?.role === 'ADMINISTRADOR'
+                        ? resumenAdmin?.totalPagos || 0
+                        : (typeof resumen?.resumenGeneral?.totalPagos === 'number' ? resumen.resumenGeneral.totalPagos : 0)}
                     </dd>
                   </dl>
                 </div>
@@ -129,13 +148,9 @@ export default function HistorialPagos() {
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Monto Total</dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      {(() => {
-                        const montoTotal = resumen.resumenGeneral?.montoTotal;
-                        if (typeof montoTotal === 'number') {
-                          return pagoService.formatearPrecio(montoTotal);
-                        }
-                        return pagoService.formatearPrecio(0);
-                      })()}
+                      {user?.role === 'ADMINISTRADOR'
+                        ? pagoService.formatearPrecio(resumenAdmin?.montoTotal || 0)
+                        : pagoService.formatearPrecio(typeof resumen?.resumenGeneral?.montoTotal === 'number' ? resumen.resumenGeneral.montoTotal : 0)}
                     </dd>
                   </dl>
                 </div>
@@ -151,13 +166,9 @@ export default function HistorialPagos() {
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Pendientes</dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      {(() => {
-                        const pendientes = resumen.estadosPagos?.pendientes;
-                        if (pendientes && typeof pendientes.cantidad === 'number') {
-                          return pendientes.cantidad;
-                        }
-                        return 0;
-                      })()}
+                      {user?.role === 'ADMINISTRADOR'
+                        ? resumenAdmin?.pendientes || 0
+                        : (resumen?.estadosPagos?.pendientes?.cantidad || 0)}
                     </dd>
                   </dl>
                 </div>
@@ -173,20 +184,16 @@ export default function HistorialPagos() {
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Fallidos</dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      {(() => {
-                        const fallidos = resumen.estadosPagos?.fallidos;
-                        if (fallidos && typeof fallidos.cantidad === 'number') {
-                          return fallidos.cantidad;
-                        }
-                        return 0;
-                      })()}
+                      {user?.role === 'ADMINISTRADOR'
+                        ? resumenAdmin?.fallidos || 0
+                        : (resumen?.estadosPagos?.fallidos?.cantidad || 0)}
                     </dd>
                   </dl>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Filtros */}
         <div className="bg-white rounded-lg shadow mb-6 p-6">
@@ -282,6 +289,23 @@ export default function HistorialPagos() {
                       <div>
                         <p className="text-sm font-medium text-gray-900">
                           {pago.descripcion || 'Pago sin descripción'}
+                        </p>
+                        {user?.role === 'ADMINISTRADOR' && (
+                          <p className="text-xs text-gray-500">
+                            {pago.cliente?.nombre || 'Cliente'} {pago.cliente?.email ? `· ${pago.cliente.email}` : ''}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          {(() => {
+                            const suscripcionServicio = pago.suscripcion?.servicio?.nombre;
+                            const itemsCarrito = pago.carrito?.items
+                              ?.map((i) => i.servicio?.nombre)
+                              .filter(Boolean)
+                              .join(', ');
+                            if (suscripcionServicio) return suscripcionServicio;
+                            if (itemsCarrito) return itemsCarrito;
+                            return 'Servicio no informado';
+                          })()}
                         </p>
                         <p className="text-sm text-gray-500">
                           {pagoService.formatearFecha(pago.createdAt)}

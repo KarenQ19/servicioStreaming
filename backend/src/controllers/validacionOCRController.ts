@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import path from 'path';
+import fs from 'fs';
 import { prisma } from '../utils/database';
 import { OCRService } from '../services/ocrService';
 
@@ -235,13 +237,25 @@ export class ValidacionOCRController {
       transaccion: false
     };
 
+    // Normaliza fechas en formato dd-mm-aaaa o dd/mm/aaaa a ISO yyyy-mm-dd
+    const normalizarFecha = (texto: string | undefined) => {
+      if (!texto) return null;
+      const match = texto.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})$/);
+      if (match) {
+        const [, dd, mm, yyyy] = match;
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      return texto;
+    };
+
     const errores: string[] = [];
 
     // Validar monto (con tolerancia de ±1%)
     if (datosComprobante.monto) {
-      const montoComprobante = parseFloat(datosComprobante.monto.replace(/[^0-9.-]+/g, ''));
-      const montoPago = parseFloat(pago.monto);
-      const tolerancia = montoPago * 0.01; // 1% de tolerancia
+      const montoComprobante = Number(parseFloat(datosComprobante.monto.replace(/[^0-9.-]+/g, '')).toFixed(2));
+      const montoPago = Number(parseFloat(pago.monto).toFixed(2));
+      // Tolerancia mayor para evitar fallos por redondeo/decimales
+      const tolerancia = Math.max(montoPago * 0.02, 0.5); // 2% o $0.5, lo que sea mayor
 
       if (Math.abs(montoComprobante - montoPago) <= tolerancia) {
         coincidencias.monto = true;
@@ -249,46 +263,65 @@ export class ValidacionOCRController {
         errores.push(`Monto no coincide: $${montoComprobante} vs $${montoPago}`);
       }
     } else {
-      errores.push('No se detectó monto en el comprobante');
+      errores.push('No se detecto monto en el comprobante');
     }
 
-    // Validar fecha (misma fecha o máximo 1 día de diferencia)
-    if (datosComprobante.fecha) {
-      const fechaComprobante = new Date(datosComprobante.fecha);
-      const fechaPago = new Date(pago.createdAt);
+    // Validar fecha (misma fecha o maximo 1 dia de diferencia)
+    const fechaNormalizada = normalizarFecha(datosComprobante.fecha);
+    if (fechaNormalizada) {
+      // Comparar por fecha de calendario (ignorando horas/zona) para evitar falsos negativos por TZ
+      const fechaComprobante = new Date(`${fechaNormalizada}T00:00:00Z`);
+      const fechaPagoISO = pago.createdAt.toISOString().split('T')[0];
+      const fechaPago = new Date(`${fechaPagoISO}T00:00:00Z`);
+
       const diferenciaDias = Math.abs(
         (fechaComprobante.getTime() - fechaPago.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      if (diferenciaDias <= 1) {
+      if (!isNaN(fechaComprobante.getTime()) && diferenciaDias <= 1) {
         coincidencias.fecha = true;
       } else {
-        errores.push(`Fecha no coincide: ${datosComprobante.fecha} vs ${pago.createdAt.toISOString().split('T')[0]}`);
+        errores.push(`Fecha no coincide: ${fechaNormalizada} vs ${fechaPagoISO}`);
       }
     } else {
-      errores.push('No se detectó fecha en el comprobante');
+      errores.push('No se detecto fecha en el comprobante');
     }
 
     // Validar referencia (si existe)
-    if (datosComprobante.referencia && pago.referencia) {
-      if (datosComprobante.referencia.toLowerCase().includes(pago.referencia.toLowerCase()) ||
-          pago.referencia.toLowerCase().includes(datosComprobante.referencia.toLowerCase())) {
+    if (datosComprobante.referencia) {
+      if (!pago.referencia) {
+        // Si el pago no tiene referencia esperada, no penalizar
         coincidencias.referencia = true;
       } else {
-        errores.push(`Referencia no coincide: ${datosComprobante.referencia} vs ${pago.referencia}`);
+        const refComprobante = datosComprobante.referencia.trim().toLowerCase();
+        const refPago = pago.referencia.trim().toLowerCase();
+        if (refComprobante.includes(refPago) || refPago.includes(refComprobante)) {
+          coincidencias.referencia = true;
+        } else {
+          errores.push(`Referencia no coincide: ${datosComprobante.referencia} vs ${pago.referencia}`);
+        }
       }
     }
 
-    // Validar número de transacción (si existe)
+    // Validar numero de transaccion (si existe)
     if (datosComprobante.transaccion) {
-      coincidencias.transaccion = true; // Siempre contamos como válido si se detectó
+      coincidencias.transaccion = true; // Siempre contamos como valido si se detecta
     }
 
-    const totalCoincidencias = Object.values(coincidencias).filter(Boolean).length;
-    const porcentajeCoincidencia = (totalCoincidencias / 4) * 100;
+    const tieneValor = (valor: any) => valor !== undefined && valor !== null && `${valor}`.trim() !== '';
+    // Solo contar campos realmente presentes para el porcentaje
+    const camposPresentes = [
+      datosComprobante.monto,
+      datosComprobante.fecha,
+      datosComprobante.referencia,
+      datosComprobante.transaccion
+    ].filter(tieneValor).length || 1;
 
-    // Considerar válido si hay al menos 75% de coincidencia
-    const esValido = porcentajeCoincidencia >= 75;
+    const totalCoincidencias = Object.values(coincidencias).filter(Boolean).length;
+    const porcentajeCoincidencia = (totalCoincidencias / camposPresentes) * 100;
+
+    // Considerar válido si monto y fecha coinciden, o si supera el 70% de coincidencia
+    const esValido = (coincidencias.monto && coincidencias.fecha) || porcentajeCoincidencia >= 70;
 
     return {
       esValido,
@@ -298,3 +331,90 @@ export class ValidacionOCRController {
     };
   }
 }
+
+// Historial de validaciones OCR para administradores (todas las validaciones)
+export const obtenerHistorialValidacionesAdmin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { pagina = 1, limite = 10 } = req.query;
+    const skip = (Number(pagina) - 1) * Number(limite);
+
+    const validaciones = await prisma.validacionOCR.findMany({
+      include: {
+        pago: {
+          include: {
+            cliente: { select: { id: true, nombre: true, email: true } },
+            suscripcion: {
+              include: {
+                servicio: { select: { id: true, nombre: true, precio: true } }
+              }
+            },
+            carrito: {
+              include: {
+                items: {
+                  include: {
+                    servicio: { select: { id: true, nombre: true, precio: true } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        usuario: { select: { id: true, nombre: true, email: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: Number(limite)
+    });
+
+    const total = await prisma.validacionOCR.count();
+
+    res.json({
+      exito: true,
+      datos: {
+        validaciones,
+        paginacion: {
+          pagina: Number(pagina),
+          limite: Number(limite),
+          total,
+          totalPaginas: Math.ceil(total / Number(limite))
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo historial OCR admin:', error);
+    res.status(500).json({
+      exito: false,
+      error: 'Error interno al obtener el historial OCR'
+    });
+  }
+};
+
+// Obtener imagen de comprobante para administradores
+export const obtenerImagenValidacionAdmin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const validacion = await prisma.validacionOCR.findUnique({
+      where: { id },
+      select: { imagenUrl: true }
+    });
+
+    if (!validacion || !validacion.imagenUrl) {
+      res.status(404).json({ exito: false, error: 'Imagen no encontrada' });
+      return;
+    }
+
+    const absolutePath = path.isAbsolute(validacion.imagenUrl)
+      ? validacion.imagenUrl
+      : path.resolve(validacion.imagenUrl);
+
+    if (!fs.existsSync(absolutePath)) {
+      res.status(404).json({ exito: false, error: 'Archivo no disponible' });
+      return;
+    }
+
+    res.sendFile(absolutePath);
+  } catch (error) {
+    console.error('Error obteniendo imagen de validación OCR:', error);
+    res.status(500).json({ exito: false, error: 'Error interno al obtener la imagen' });
+  }
+};

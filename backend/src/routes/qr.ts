@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { qrController } from '../controllers/qrController';
-import { authenticate, authorizeClient } from '../middleware/auth';
-import { ValidacionOCRController } from '../controllers/validacionOCRController';
+import { authenticate, authorizeClient, authorizeAdmin } from '../middleware/auth';
+import { ValidacionOCRController, obtenerHistorialValidacionesAdmin, obtenerImagenValidacionAdmin } from '../controllers/validacionOCRController';
 import { UploadOCRMiddleware } from '../middleware/uploadOCR';
 import { OCRService } from '../services/ocrService';
 
@@ -16,6 +16,20 @@ router.get('/validaciones/historial',
   authenticate,
   authorizeClient,
   ValidacionOCRController.obtenerHistorialValidaciones
+);
+
+// GET /api/qr/validaciones/admin - Historial completo para administradores
+router.get('/validaciones/admin',
+  authenticate,
+  authorizeAdmin,
+  obtenerHistorialValidacionesAdmin
+);
+
+// GET /api/qr/validaciones/admin/:id/imagen - Obtener comprobante subido por el cliente (admin)
+router.get('/validaciones/admin/:id/imagen',
+  authenticate,
+  authorizeAdmin,
+  obtenerImagenValidacionAdmin
 );
 
 // POST /api/qr/demo-ocr - Endpoint de demostración para probar OCR con imágenes de ejemplo (DEBE IR ANTES DE /:pagoId)

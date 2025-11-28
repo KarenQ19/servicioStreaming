@@ -108,11 +108,12 @@ exports.clientePagosController = {
                 }
             }
             const skip = (Number(page) - 1) * Number(limit);
-            const [pagos, totalPagos] = await Promise.all([
+            const [pagosRaw, totalPagos] = await Promise.all([
                 prisma.pago.findMany({
                     where: filtros,
                     include: {
                         metodoPago: true,
+                        cliente: { select: { id: true, nombre: true, email: true } },
                         carrito: {
                             include: {
                                 items: {
@@ -157,8 +158,34 @@ exports.clientePagosController = {
                 }),
                 prisma.pago.count({ where: filtros })
             ]);
-            const estadisticas = await prisma.pago.aggregate({
-                where: { clienteId },
+            const pagos = pagosRaw.map(p => {
+                const itemsCount = p.carrito?.items?.length || 0;
+                if (p.estado === 'PENDIENTE' && (!p.carrito || itemsCount === 0)) {
+                    return { ...p, estado: 'FALLIDO', descripcion: p.descripcion || 'Pago cancelado por carrito vacío' };
+                }
+                return p;
+            });
+            const completadosKeys = new Set(pagos
+                .filter(p => p.estado === 'COMPLETADO')
+                .map(p => `${p.suscripcionId || ''}-${p.carritoId || ''}`));
+            const pagosFiltrados = pagos.filter(p => {
+                if (p.estado !== 'PENDIENTE')
+                    return true;
+                const key = `${p.suscripcionId || ''}-${p.carritoId || ''}`;
+                return !completadosKeys.has(key);
+            });
+            const pagosUnicosMap = new Map();
+            pagosFiltrados
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .forEach(p => {
+                const key = p.suscripcionId || p.carritoId || `single-${p.id}`;
+                if (!pagosUnicosMap.has(key)) {
+                    pagosUnicosMap.set(key, p);
+                }
+            });
+            const pagosUnicos = Array.from(pagosUnicosMap.values());
+            const estadisticasCompletados = await prisma.pago.aggregate({
+                where: { clienteId, estado: 'COMPLETADO' },
                 _sum: { monto: true },
                 _count: { _all: true }
             });
@@ -185,29 +212,30 @@ exports.clientePagosController = {
                 ...metodo,
                 metodoPago: metodosInfo.find((m) => m.id === metodo.metodoPagoId)
             }));
-            const totalPaginas = Math.ceil(totalPagos / Number(limit));
+            const totalRegistros = pagosFiltrados.length || totalPagos;
+            const totalPaginas = Math.max(1, Math.ceil(totalRegistros / Number(limit)));
             const paginaActual = Number(page);
             return res.json({
                 success: true,
                 data: {
-                    pagos,
+                    pagos: pagosUnicos,
                     paginacion: {
                         paginaActual,
                         totalPaginas,
-                        totalRegistros: totalPagos,
+                        totalRegistros: pagosUnicos.length || totalRegistros,
                         registrosPorPagina: Number(limit),
                         hayPaginaAnterior: paginaActual > 1,
                         hayPaginaSiguiente: paginaActual < totalPaginas
                     },
                     estadisticas: {
-                        totalPagos: estadisticas._count || 0,
-                        montoTotal: estadisticas._sum.monto || 0,
-                        promedioPorPago: (estadisticas._count && estadisticas._sum.monto)
-                            ? Number(estadisticas._sum.monto) / Number(estadisticas._count)
+                        totalPagos: estadisticasCompletados._count?._all || 0,
+                        montoTotal: estadisticasCompletados._sum.monto || 0,
+                        promedioPorPago: (estadisticasCompletados._count?._all && estadisticasCompletados._sum.monto)
+                            ? Number(estadisticasCompletados._sum.monto) / Number(estadisticasCompletados._count._all)
                             : 0,
                         estadisticasPorEstado: estadisticasPorEstado.map((est) => ({
                             estado: est.estado,
-                            cantidad: est._count,
+                            cantidad: est._count?._all || 0,
                             montoTotal: est._sum.monto || 0
                         })),
                         metodosMasUsados: metodosMasUsadosConInfo
@@ -240,33 +268,42 @@ exports.clientePagosController = {
                     message: 'Usuario no autenticado'
                 });
             }
-            const [totalPagos, pagosPendientes, pagosCompletados, pagosFallidos, pagosReembolsados] = await Promise.all([
-                prisma.pago.aggregate({
-                    where: { clienteId },
-                    _sum: { monto: true },
-                    _count: { _all: true }
-                }),
-                prisma.pago.aggregate({
-                    where: { clienteId, estado: 'PENDIENTE' },
-                    _sum: { monto: true },
-                    _count: { _all: true }
-                }),
-                prisma.pago.aggregate({
-                    where: { clienteId, estado: 'COMPLETADO' },
-                    _sum: { monto: true },
-                    _count: { _all: true }
-                }),
-                prisma.pago.aggregate({
-                    where: { clienteId, estado: 'FALLIDO' },
-                    _sum: { monto: true },
-                    _count: { _all: true }
-                }),
-                prisma.pago.aggregate({
-                    where: { clienteId, estado: 'REEMBOLSADO' },
-                    _sum: { monto: true },
-                    _count: { _all: true }
-                })
-            ]);
+            const pagosCliente = await prisma.pago.findMany({
+                where: { clienteId },
+                select: {
+                    id: true,
+                    estado: true,
+                    monto: true,
+                    suscripcionId: true,
+                    carritoId: true,
+                    createdAt: true
+                }
+            });
+            const completadosKeys = new Set(pagosCliente
+                .filter(p => p.estado === 'COMPLETADO')
+                .map(p => `${p.suscripcionId || ''}-${p.carritoId || ''}`));
+            const pagosFiltrados = pagosCliente.filter(p => {
+                if (p.estado !== 'PENDIENTE')
+                    return true;
+                const key = `${p.suscripcionId || ''}-${p.carritoId || ''}`;
+                return !completadosKeys.has(key);
+            });
+            const pagosUnicosMap = new Map();
+            pagosFiltrados
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .forEach(p => {
+                const key = p.suscripcionId || p.carritoId || `single-${p.id}`;
+                if (!pagosUnicosMap.has(key)) {
+                    pagosUnicosMap.set(key, p);
+                }
+            });
+            const pagosUnicos = Array.from(pagosUnicosMap.values());
+            const pendientes = pagosUnicos.filter(p => p.estado === 'PENDIENTE');
+            const completados = pagosUnicos.filter(p => p.estado === 'COMPLETADO');
+            const fallidos = pagosUnicos.filter(p => p.estado === 'FALLIDO');
+            const reembolsados = pagosUnicos.filter(p => p.estado === 'REEMBOLSADO');
+            const totalPagos = completados.length;
+            const montoTotal = completados.reduce((sum, p) => sum + Number(p.monto || 0), 0);
             const pagosRecientes = await prisma.pago.findMany({
                 where: { clienteId },
                 include: {
@@ -282,33 +319,33 @@ exports.clientePagosController = {
                 success: true,
                 data: {
                     resumenGeneral: {
-                        totalPagos: totalPagos._count || 0,
-                        montoTotal: totalPagos._sum.monto || 0,
+                        totalPagos,
+                        montoTotal,
                         promedioMensual: 0
                     },
                     estadosPagos: {
                         pendientes: {
-                            cantidad: pagosPendientes._count || 0,
-                            monto: pagosPendientes._sum.monto || 0
+                            cantidad: pendientes.length,
+                            monto: pendientes.reduce((s, p) => s + Number(p.monto || 0), 0)
                         },
                         completados: {
-                            cantidad: pagosCompletados._count || 0,
-                            monto: pagosCompletados._sum.monto || 0
+                            cantidad: completados.length,
+                            monto: completados.reduce((s, p) => s + Number(p.monto || 0), 0)
                         },
                         fallidos: {
-                            cantidad: pagosFallidos._count || 0,
-                            monto: pagosFallidos._sum.monto || 0
+                            cantidad: fallidos.length,
+                            monto: fallidos.reduce((s, p) => s + Number(p.monto || 0), 0)
                         },
                         reembolsados: {
-                            cantidad: pagosReembolsados._count || 0,
-                            monto: pagosReembolsados._sum.monto || 0
+                            cantidad: reembolsados.length,
+                            monto: reembolsados.reduce((s, p) => s + Number(p.monto || 0), 0)
                         }
                     },
                     pagosRecientes,
                     metodoPagoPreferido: null,
                     alertas: {
-                        tienePagosPendientes: (pagosPendientes._count._all || 0) > 0,
-                        tienePagosFallidos: (pagosFallidos._count._all || 0) > 0,
+                        tienePagosPendientes: pendientes.length > 0,
+                        tienePagosFallidos: fallidos.length > 0,
                         necesitaMetodoPreferido: false
                     }
                 }

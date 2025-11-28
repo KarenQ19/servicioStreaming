@@ -41,6 +41,7 @@ export const obtenerSuscripciones = async (req: Request, res: Response): Promise
               descripcion: true,
               precio: true,
               categoria: true,
+              logoUrl: true,
               disponible: true,
               caracteristicas: true
             }

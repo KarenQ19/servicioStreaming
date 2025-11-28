@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -71,6 +104,25 @@ exports.pagoController = {
                     }
                 }
             });
+            const obtenerImagenQR = async (codigoQR) => {
+                try {
+                    const { loadPaymentSettings } = await Promise.resolve().then(() => __importStar(require('./paymentConfigController')));
+                    const settings = await loadPaymentSettings();
+                    const adminQrPath = settings.qrImagePath || process.env.ADMIN_QR_IMAGE_PATH || process.env.QR_IMAGE_PATH;
+                    const fallbackPath = path_1.default.join(__dirname, '../../uploads/qr/default.png');
+                    const qrPath = (adminQrPath && fs_1.default.existsSync(adminQrPath)) ? adminQrPath
+                        : (fs_1.default.existsSync(fallbackPath) ? fallbackPath : null);
+                    if (qrPath) {
+                        const buffer = await fs_1.default.promises.readFile(qrPath);
+                        return buffer.toString('base64');
+                    }
+                }
+                catch (err) {
+                    console.error('Error cargando imagen QR configurada:', err);
+                }
+                const generado = await qrcode_1.default.toDataURL(codigoQR);
+                return generado.split(',')[1];
+            };
             let qrGenerado = null;
             if (metodoPago.tipo === 'QR') {
                 try {
@@ -85,16 +137,7 @@ exports.pagoController = {
                             expiresAt
                         }
                     });
-                    const customQrPath = process.env.QR_IMAGE_PATH || path_1.default.join(__dirname, '../../uploads/qr/default.png');
-                    let imagenBase64 = null;
-                    if (customQrPath && fs_1.default.existsSync(customQrPath)) {
-                        const buffer = await fs_1.default.promises.readFile(customQrPath);
-                        imagenBase64 = buffer.toString('base64');
-                    }
-                    else {
-                        const generado = await qrcode_1.default.toDataURL(codigo);
-                        imagenBase64 = generado.split(',')[1];
-                    }
+                    const imagenBase64 = await obtenerImagenQR(codigo);
                     qrGenerado = {
                         ...qr,
                         imagenBase64
@@ -421,6 +464,22 @@ exports.pagoController = {
                 where: { id },
                 data: { estado: 'COMPLETADO' }
             });
+            const filtroRelacion = { clienteId, estado: 'PENDIENTE', NOT: { id } };
+            if (pago.suscripcionId) {
+                filtroRelacion.suscripcionId = pago.suscripcionId;
+            }
+            else if (pago.carritoId) {
+                filtroRelacion.carritoId = pago.carritoId;
+            }
+            if (filtroRelacion.suscripcionId || filtroRelacion.carritoId) {
+                await prisma.pago.updateMany({
+                    where: filtroRelacion,
+                    data: {
+                        estado: 'FALLIDO',
+                        descripcion: 'Reemplazado por pago completado ' + id
+                    }
+                });
+            }
             const resultado = await exports.pagoController.procesarPagoCompletado(id);
             return res.json({
                 success: true,

@@ -347,6 +347,18 @@ export const eliminarItem = async (req: Request, res: Response): Promise<void> =
       where: { id: itemId }
     });
 
+    // Cancelar pagos pendientes asociados a este carrito
+    await prisma.pago.updateMany({
+      where: {
+        carritoId: item.carritoId,
+        estado: 'PENDIENTE'
+      },
+      data: {
+        estado: 'FALLIDO',
+        descripcion: 'Pago cancelado por modificación del carrito'
+      }
+    });
+
     res.json({
       success: true,
       message: 'Item eliminado del carrito exitosamente'
@@ -391,6 +403,18 @@ export const vaciarCarrito = async (req: Request, res: Response): Promise<void> 
     await prisma.carritoItem.deleteMany({
       where: {
         carritoId: carrito.id
+      }
+    });
+
+    // Cancelar pagos pendientes asociados a este carrito
+    await prisma.pago.updateMany({
+      where: {
+        carritoId: carrito.id,
+        estado: 'PENDIENTE'
+      },
+      data: {
+        estado: 'FALLIDO',
+        descripcion: 'Pago cancelado al vaciar el carrito'
       }
     });
 

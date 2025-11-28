@@ -82,6 +82,28 @@ export const pagoController = {
         }
       });
 
+      // Helper para obtener imagen QR definida por admin o generar una dinámica
+      const obtenerImagenQR = async (codigoQR: string) => {
+        try {
+          const { loadPaymentSettings } = await import('./paymentConfigController');
+          const settings = await loadPaymentSettings();
+          const adminQrPath = settings.qrImagePath || process.env.ADMIN_QR_IMAGE_PATH || process.env.QR_IMAGE_PATH;
+          const fallbackPath = path.join(__dirname, '../../uploads/qr/default.png');
+          const qrPath = (adminQrPath && fs.existsSync(adminQrPath)) ? adminQrPath
+            : (fs.existsSync(fallbackPath) ? fallbackPath : null);
+
+          if (qrPath) {
+            const buffer = await fs.promises.readFile(qrPath);
+            return buffer.toString('base64');
+          }
+        } catch (err) {
+          console.error('Error cargando imagen QR configurada:', err);
+        }
+        // Si no hay imagen definida por el admin, generar un QR dinámico
+        const generado = await QRCode.toDataURL(codigoQR);
+        return generado.split(',')[1];
+      };
+
       // Si es método QR, generar el código QR
       let qrGenerado = null;
       if (metodoPago.tipo === 'QR') {
@@ -100,15 +122,7 @@ export const pagoController = {
             }
           });
 
-          const customQrPath = process.env.QR_IMAGE_PATH || path.join(__dirname, '../../uploads/qr/default.png');
-          let imagenBase64: string | null = null;
-          if (customQrPath && fs.existsSync(customQrPath)) {
-            const buffer = await fs.promises.readFile(customQrPath);
-            imagenBase64 = buffer.toString('base64');
-          } else {
-            const generado = await QRCode.toDataURL(codigo);
-            imagenBase64 = generado.split(',')[1];
-          }
+          const imagenBase64 = await obtenerImagenQR(codigo);
 
           qrGenerado = {
             ...qr,
@@ -492,6 +506,23 @@ export const pagoController = {
         where: { id },
         data: { estado: 'COMPLETADO' }
       });
+
+      // Marcar como fallidos los pendientes anteriores de la misma suscripción/carrito
+      const filtroRelacion: any = { clienteId, estado: 'PENDIENTE', NOT: { id } };
+      if (pago.suscripcionId) {
+        filtroRelacion.suscripcionId = pago.suscripcionId;
+      } else if (pago.carritoId) {
+        filtroRelacion.carritoId = pago.carritoId;
+      }
+      if (filtroRelacion.suscripcionId || filtroRelacion.carritoId) {
+        await prisma.pago.updateMany({
+          where: filtroRelacion,
+          data: {
+            estado: 'FALLIDO',
+            descripcion: 'Reemplazado por pago completado ' + id
+          }
+        });
+      }
 
       // Procesar automáticamente el pago completado
       const resultado = await pagoController.procesarPagoCompletado(id);

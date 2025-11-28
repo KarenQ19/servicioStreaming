@@ -24,6 +24,24 @@ export interface Pago {
   createdAt: string;
   updatedAt: string;
   qr?: QRCode;
+  cliente?: {
+    id: string;
+    nombre: string;
+    email: string;
+  };
+  suscripcion?: {
+    servicio?: {
+      id: string;
+      nombre: string;
+      precio?: number;
+      categoria?: string;
+    };
+  };
+  carrito?: {
+    items: Array<{
+      servicio: { id: string; nombre: string; precio?: number; categoria?: string };
+    }>;
+  };
 }
 
 export interface QRCode {
@@ -32,6 +50,7 @@ export interface QRCode {
   pagoId: string;
   estado: 'ACTIVO' | 'USADO' | 'EXPIRADO';
   imagenBase64: string;
+  qrImage?: string;
   createdAt: string;
   expiresAt: string;
 }
@@ -206,9 +225,40 @@ class PagoService {
     return response.data.data;
   }
 
+  // Historial para admin (todos los pagos)
+  async consultarHistorialPagosAdmin(filtros?: {
+    page?: number;
+    limit?: number;
+    estado?: string;
+    metodoPagoId?: string;
+    fechaInicio?: string;
+    fechaFin?: string;
+    ordenarPor?: string;
+    orden?: 'asc' | 'desc';
+  }): Promise<{ pagos: Pago[]; paginacion: any }> {
+    const params = new URLSearchParams();
+    
+    if (filtros) {
+      Object.entries(filtros).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const response = await api.get(`/admin/pagos?${params.toString()}`);
+    return response.data.data;
+  }
+
   async obtenerResumenPagos(): Promise<ResumenPagosResponse> {
     const response = await api.get('/clientes/pagos/resumen');
     return response.data.data;
+  }
+
+  // Procesar pagos completados pendientes (crea suscripciones desde carritos activos)
+  async procesarPagosCompletados(): Promise<any> {
+    const response = await api.post('/pagos/procesar-completados');
+    return response.data;
   }
 
   // Utilidades

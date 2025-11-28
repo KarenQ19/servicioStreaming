@@ -18,6 +18,8 @@ const AdminReports: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const serviciosMasVendidos = (reporteVentas as any)?.ventasPorServicio || (reporteVentas as any)?.serviciosMasVendidos || [];
+
   // Filtros para reportes de ventas
   const [filtrosVentas, setFiltrosVentas] = useState<FiltrosReportes>({
     fechaInicio: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 días atrás
@@ -290,26 +292,45 @@ const AdminReports: React.FC = () => {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {reporteVentas.ventasPorServicio.map((servicio, index) => (
-                  <div key={servicio.servicio.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-medium">#{index + 1}</span>
+                {(serviciosMasVendidos || []).length === 0 ? (
+                  <p className="text-gray-500 text-sm">No hay ventas registradas en el periodo seleccionado.</p>
+                ) : (
+                  (serviciosMasVendidos || [])
+                    .slice()
+                    .sort((a, b) => b.ingresos - a.ingresos)
+                    .slice(0, 3)
+                    .map((servicio, index) => {
+                      const nombre = servicio.servicio?.nombre || servicio.servicio?.id || 'Servicio';
+                      const ingresos = servicio.ingresos ?? servicio.totalVentas ?? 0;
+                      const ventas = servicio.cantidadVentas ?? servicio.totalVentas ?? 0;
+                      return (
+                        <div
+                          key={servicio.servicio.id || `${nombre}-${index}`}
+                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-blue-50/60 transition"
+                        >
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                              <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span className="text-blue-600 font-medium">#{index + 1}</span>
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <p className="text-sm font-medium text-gray-900">{nombre}</p>
+                              <p className="text-sm text-gray-500">
+                                {ventas} ventas · {formatCurrency(ingresos)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {formatCurrency(ingresos)}
+                            </p>
+                            <p className="text-xs text-gray-500">{ventas} unidades</p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-900">{servicio.servicio.nombre}</p>
-                        <p className="text-sm text-gray-500">{servicio.cantidadVentas} ventas</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        {formatCurrency(servicio.ingresos)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                      );
+                    })
+                )}
               </div>
             </div>
           </div>

@@ -21,6 +21,7 @@ import AdminClientsPage from './pages/admin/AdminClientsPage';
 import AdminReportsPage from './pages/admin/AdminReportsPage';
 import AdminCartsPage from './pages/admin/AdminCartsPage';
 import AdminMetricsPage from './pages/admin/AdminMetricsPage';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
@@ -99,6 +100,7 @@ function App() {
                   <Route path="reportes" element={<AdminReportsPage />} />
                   <Route path="carritos" element={<AdminCartsPage />} />
                   <Route path="metricas" element={<AdminMetricsPage />} />
+                  <Route path="configuracion" element={<AdminSettingsPage />} />
                 </Route>
                 
                 {/* Ruta por defecto - redirige a home */}

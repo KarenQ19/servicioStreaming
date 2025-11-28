@@ -34,7 +34,8 @@ export const authorizeClient = (req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  if ((req.user as any).role !== 'CLIENTE') {
+  const role = (req.user as any).role;
+  if (role !== 'CLIENTE') {
     sendError(res, 'Access denied. Client role required', 403);
     return;
   }

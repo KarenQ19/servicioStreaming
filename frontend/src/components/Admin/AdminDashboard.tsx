@@ -29,7 +29,13 @@ interface ServicioPopular {
   ingresos: number;
 }
 
-const AdminDashboard: React.FC = () => {
+type AdminSection = 'dashboard' | 'services' | 'users' | 'reports' | 'settings';
+
+interface AdminDashboardProps {
+  onNavigateSection?: (section: AdminSection) => void;
+}
+
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateSection }) => {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [serviciosPopulares, setServiciosPopulares] = useState<ServicioPopular[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,29 +67,11 @@ const AdminDashboard: React.FC = () => {
       const catalogoData = catalogoResponse;
       const reportesData = reportesResponse;
 
-      // Calcular ventas del mes a partir de ventasPorPeriodo
-      const ventasMesActual = reportesData.ventasPorPeriodo
-        ?.filter((venta: any) => {
-          const fecha = new Date(venta.periodo);
-          const hoy = new Date();
-          return fecha.getMonth() === hoy.getMonth() && fecha.getFullYear() === hoy.getFullYear();
-        })
-        .reduce((total: number, venta: any) => total + venta.cantidadVentas, 0) || 0;
-
-      // Calcular ingresos del mes actual
-      const ingresosMesActual = reportesData.ventasPorPeriodo
-        ?.filter((venta: any) => {
-          const fecha = new Date(venta.periodo);
-          const hoy = new Date();
-          return fecha.getMonth() === hoy.getMonth() && fecha.getFullYear() === hoy.getFullYear();
-        })
-        .reduce((total: number, venta: any) => total + venta.ingresos, 0) || 0;
-
-      // Calcular ventas de hoy
-      const hoy = new Date().toISOString().split('T')[0];
-      const ventasHoy = reportesData.ventasPorPeriodo
-        ?.filter((venta: any) => venta.periodo === hoy)
-        .reduce((total: number, venta: any) => total + venta.cantidadVentas, 0) || 0;
+      // Usar métricas directas que entrega el backend (laxo para evitar TS cuando faltan campos)
+      const stats: any = reportesData.estadisticas || {};
+      const ventasMesActual = stats.ventasMes || 0;
+      const ingresosMesActual = stats.ingresosTotales || 0;
+      const ventasHoy = stats.ventasHoy || 0;
 
       const dashboardMetrics: DashboardMetrics = {
         totalClientes: catalogoData.estadisticas?.totalClientes || 0,
@@ -294,22 +282,27 @@ const AdminDashboard: React.FC = () => {
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-              <UsersIcon className="mr-2 h-5 w-5" />
-              Ver Clientes
-            </button>
-            <button className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-              <CogIcon className="mr-2 h-5 w-5" />
-              Gestionar Servicios
-            </button>
-            <button className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-              <ChartBarIcon className="mr-2 h-5 w-5" />
-              Ver Reportes
-            </button>
-            <button className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-              <ShoppingCartIcon className="mr-2 h-5 w-5" />
-              Ver Carritos
-            </button>
+            {[
+              { label: 'Ver Clientes', icon: UsersIcon, section: 'users' as AdminSection, href: '/admin/clientes' },
+              { label: 'Gestionar Servicios', icon: CogIcon, section: 'services' as AdminSection, href: '/admin/servicios' },
+              { label: 'Ver Reportes', icon: ChartBarIcon, section: 'reports' as AdminSection, href: '/admin/reportes' },
+              { label: 'Ver Carritos', icon: ShoppingCartIcon, section: 'settings' as AdminSection, href: '/admin/carritos' }, // ajusta section si tienes uno dedicado
+            ].map(({ label, icon: Icon, section, href }) => (
+              <button
+                key={label}
+                onClick={() => {
+                  if (onNavigateSection) {
+                    onNavigateSection(section);
+                  } else if (href) {
+                    window.location.href = href;
+                  }
+                }}
+                className="flex items-center justify-center px-4 py-3 border border-gray-200 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-blue-50 hover:-translate-y-0.5 hover:shadow-md transition transform duration-200 ease-out gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                <Icon className="h-5 w-5" />
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       </div>

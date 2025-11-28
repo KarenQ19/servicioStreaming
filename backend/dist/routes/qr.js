@@ -10,6 +10,8 @@ const router = (0, express_1.Router)();
 const uploadOCR = new uploadOCR_1.UploadOCRMiddleware();
 router.post('/generar', auth_1.authenticate, auth_1.authorizeClient, qrController_1.qrController.generarQR);
 router.get('/validaciones/historial', auth_1.authenticate, auth_1.authorizeClient, validacionOCRController_1.ValidacionOCRController.obtenerHistorialValidaciones);
+router.get('/validaciones/admin', auth_1.authenticate, auth_1.authorizeAdmin, validacionOCRController_1.obtenerHistorialValidacionesAdmin);
+router.get('/validaciones/admin/:id/imagen', auth_1.authenticate, auth_1.authorizeAdmin, validacionOCRController_1.obtenerImagenValidacionAdmin);
 router.post('/demo-ocr', uploadOCR.subirComprobante(), async (req, res) => {
     try {
         const imagenPath = req.file?.path;

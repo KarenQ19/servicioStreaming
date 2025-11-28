@@ -17,10 +17,18 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 app.use((0, helmet_1.default)());
-const allowedOrigins = Array.from(new Set((process.env.CORS_ORIGIN || '')
-    .split(',')
-    .map(o => o.trim())
-    .filter(Boolean)));
+const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:5173',
+    'http://localhost:4173',
+];
+app.use((0, cors_1.default)({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin))
+            return callback(null, true);
+        return callback(new Error(`CORS: Origin ${origin} not allowed`));
+    },
+    credentials: true,
+}));
 ['http://localhost:5173', 'http://localhost:4173'].forEach(origin => {
     if (!allowedOrigins.includes(origin)) {
         allowedOrigins.push(origin);

@@ -272,8 +272,8 @@ export default function Navbar() {
                   )}
                 </div>
 
-                {/* Carrito Button */}
-                <CarritoButton />
+                {/* Carrito Button (solo clientes) */}
+                {user?.role === 'CLIENTE' && <CarritoButton />}
               </div>
             )}
           </div>

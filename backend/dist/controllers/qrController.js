@@ -67,9 +67,14 @@ exports.qrController = {
                 });
             }
             const obtenerImagenQR = async (codigoQR) => {
-                const customQrPath = process.env.QR_IMAGE_PATH || path_1.default.join(__dirname, '../../uploads/qr/default.png');
-                if (customQrPath && fs_1.default.existsSync(customQrPath)) {
-                    const buffer = await fs_1.default.promises.readFile(customQrPath);
+                const { loadPaymentSettings } = await Promise.resolve().then(() => __importStar(require('./paymentConfigController')));
+                const settings = await loadPaymentSettings();
+                const adminQrPath = settings.qrImagePath || process.env.ADMIN_QR_IMAGE_PATH || process.env.QR_IMAGE_PATH;
+                const fallbackPath = path_1.default.join(__dirname, '../../uploads/qr/default.png');
+                const qrPath = (adminQrPath && fs_1.default.existsSync(adminQrPath)) ? adminQrPath
+                    : (fs_1.default.existsSync(fallbackPath) ? fallbackPath : null);
+                if (qrPath) {
+                    const buffer = await fs_1.default.promises.readFile(qrPath);
                     const base64 = buffer.toString('base64');
                     return `data:image/png;base64,${base64}`;
                 }
